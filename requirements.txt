@@ -1,0 +1,12 @@
+langchain-community
+langchainhub
+langgraph
+langchain
+mysql-connector-python 
+langchain-openai
+fastapi 
+uvicorn
+
+
+### Run with 
+### pip install -r requirements.txt
