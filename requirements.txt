@@ -6,6 +6,8 @@ mysql-connector-python
 langchain-openai
 fastapi 
 uvicorn
+python-dotenv
+sqlparse
 
 
 ### Run with 
