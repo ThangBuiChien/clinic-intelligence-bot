@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from langgraph.graph import START, StateGraph
 from connect_open_api import llm
 from app_state import State
-from run import write_query, execute_query, generate_answer
+from run_in_terminal import write_query, execute_query, generate_answer
 
 app = FastAPI()
 
