@@ -2,6 +2,7 @@ from typing import Literal, Annotated
 from typing_extensions import TypedDict
 from sql_bot import get_sql_answer
 from rag_bot import get_rag_answer
+from function_call_bot import get_function_call_answer
 from langchain_openai import ChatOpenAI
 
 
@@ -14,10 +15,11 @@ def route_question(question: str) -> str:
     
     # Create routing prompt
     routing_prompt = """You are a routing system that determines whether a question requires:
-    1. SQL database query (for specific hospital data lookups)
+    1. SQL database query (for specific hospital data lookups), it only could excuted "SELECT" queries.
     2. General RAG-based question answering (for general hospital information and policies)
+    3. Function call for executing specific functions. It could change the state of the system.
     
-    Respond only with "sql" or "rag".
+    Respond only with "sql", "rag", or "function_call".
     
     Question: {question}
     
@@ -31,6 +33,8 @@ def route_question(question: str) -> str:
     # Route to appropriate system
     if result["system"] == "sql":
         return get_sql_answer(question)
+    elif result["system"] == "function_call":
+        return get_function_call_answer(question)
     else:
         return get_rag_answer(question)
 
@@ -52,6 +56,7 @@ if __name__ == "__main__":
         "Where is the hospital located?",  # RAG
         "List all patients with their name",  # SQL
         "List all patients with their email",  # SQL
+        "Book an appointment with doctor ID 1 for patient 1 at 2024-11-20 at 4pm" #FUNCTION call
     ]
     
     for question in test_questions:

@@ -8,7 +8,8 @@ fastapi
 uvicorn
 python-dotenv
 sqlparse
-dotenv
+typing_extensions
+
 
 
 ### Run with 
