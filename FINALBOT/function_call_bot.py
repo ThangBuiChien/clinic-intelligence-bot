@@ -54,7 +54,7 @@ class CancelAppointmentRequest(BaseModel):
         }
 
 class ActionOutput(BaseModel):
-    action: Literal["book_appointment", "cancel_appointment"]
+    action: Literal["book_appointment", "cancel_appointment", "missing_info"]
     parameters: dict
 
 class EndpointHandler:
@@ -91,13 +91,22 @@ class EndpointHandler:
         except Exception as e:
             return f"Error in canceling appointment: {str(e)}"
     
+    # def _handle_response(self, response) -> str:
+    #     if response.status_code == 200:
+    #         return {
+    #         "message": response.json().get('message', 'Action completed successfully'),
+    #         "data": response.json()
+    #     }
+    #     return f"Action failed: {response.json().get('message', 'Unknown error')}"
     def _handle_response(self, response) -> str:
         if response.status_code == 200:
-            return {
-            "message": response.json().get('message', 'Action completed successfully'),
-            "data": response.json()
-        }
-        return f"Action failed: {response.json().get('message', 'Unknown error')}"
+            data = response.json()
+            message = data.get('message', 'Action completed successfully')
+            details = "\n".join([f"- **{key}**: {value}" for key, value in data.items()])
+            return f"**Message**: {message}\n\n**Details**:\n{details}"
+        else:
+            error_message = response.json().get('message', 'Unknown error')
+            return f"**Action failed**: {error_message}"
 
 def route_action(question: str) -> ActionOutput:
     """Route the question to appropriate endpoint action."""
@@ -105,6 +114,7 @@ def route_action(question: str) -> ActionOutput:
     Available actions:
     1. book_appointment - For booking doctor appointments
     2. cancel_appointment - For canceling existing appointments
+    3. missing_info - For missing information in the request
     
     Time slots available:
     - 7am to 8am
@@ -114,26 +124,24 @@ def route_action(question: str) -> ActionOutput:
     - 2pm to 3pm
     - 3pm to 4pm
     
-    Carefully extract these details from the question:
+    Carefully extract these details from the question, remember the required fields name may vary such as timeSlot could be input the time slot, time, or time_slot.:
     - For book_appointment: doctorId, patientId, appointmentDate, timeSlot
     - For cancel_appointment: appointmentId, reason
-
+                                                    
+                                                      
+    **Important**: The input may not use the exact field names but may use synonymous terms. For example, 'timeSlot' could be referred to as 'time slot', 'time', or 'at 8am'. Analyze the input carefully to extract the correct information.
+                                                      
+    **Important**: If any required information is missing, inform the user about the missing details.
     Question: {question}
     
-    Respond ONLY with a JSON that includes 'action' and 'parameters'.""")
+    Respond ONLY with a JSON that includes 'action', 'parameters'""")
 
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    
     chain = routing_prompt | llm | JsonOutputParser()
     
     try:
         result = chain.invoke({"question": question})
-        
-        # Adjust time slot if needed
-        # if result.get('action') == 'book_appointment':
-        #     if '2pm' in question:
-        #         result['parameters']['timeSlot'] = '1pm to 2pm'
-        
+        print(f"LLM Decision: {result}")
         return ActionOutput(**result)
     except Exception as e:
         raise ValueError(f"Error parsing action: {str(e)}")
@@ -148,16 +156,18 @@ def get_function_call_answer(question: str) -> str:
             return handler.book_appointment(action.parameters)
         elif action.action == "cancel_appointment":
             return handler.cancel_appointment(action.parameters)
+        else:
+            return f"Missing information: {action.parameters}"
             
     except Exception as e:
         return f"Error handling function call: {str(e)}"
     
 # Example usage
-if __name__ == "__main__":
-    test_questions = [
-        "Book an appointment with doctor ID 1 for patient 1 at 2024-11-20 at 4pm"
-    ]
+# if __name__ == "__main__":
+#     test_questions = [
+#         "Book an appointment with doctor ID 1 for patient 1 at 2024-11-20 at timeSlot 1pm to 2pm"
+#     ]
     
-    for question in test_questions:
-        print(f"\nQ: {question}")
-        print(f"A: {get_function_call_answer(question)}")
+#     for question in test_questions:
+#         print(f"\nQ: {question}")
+#         print(f"A: {get_function_call_answer(question)}")

@@ -3,6 +3,20 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 
 #### faqs.py
+bot_job = """You are ClinicBot, a helpful assistant for our medical clinic chat system. You can answer questions about our services. 
+You help patients with those faqs I will give below and use reasoning when necessary from it
+Important guidelines: \
+- Don't provide specific medical advice \
+- Direct urgent medical concerns to emergency services \
+- Keep responses professional but friendly \
+- For specific medical questions, recommend consulting with a doctor \
+
+Common tasks: \
+- Helping with appointment scheduling \
+- Explaining clinic procedures \ 
+- Answering questions about clinic services
+"""
+
 
 faqs = {
     "what are your visiting hours?": "Our visiting hours are from 7 AM to 4 PM, Monday to Friday.",
@@ -56,12 +70,12 @@ def generate_response(retrieved_faq: str, question: str) -> str:
 
             Based on the above information, please answer:
             Q: {question}
-            Please provide a clearly brief and helpful response using the context provided.
+            Please provide a clearly brief and helpful response in using the context provided.
             If the question cannot be answered with the available information, politely say so."""
 
     try:
         response = llm.invoke(prompt)
-        return response
+        return response.content.strip()  # Return only the answer content
     except Exception as e:
         return f"Failed to generate response: {e}"
     
@@ -81,23 +95,23 @@ def get_rag_answer(question: str) -> str:
 if __name__ == "__main__":
     test_questions = [
         "Could I book an appointment at 10pm?",  # RAG
-        "Do you have any doctors available for a 7am appointment?",  # RAG
-        "Can I visit the hospital on weekends?",  # RAG
-        "Is there parking available at the hospital?",  # RAG
-        "What is the earliest time I can book an appointment?",  # RAG
-        "Can I book an appointment without using the website?",  # RAG
-        "Are there any additional charges for booking an appointment?",  # RAG
-        "How long does a typical consultation last?",  # RAG
-        "Can I choose a specific doctor for my appointment?",  # RAG
-        "What should I bring to my appointment?",  # RAG
-        "Are walk-in appointments available?",  # RAG
-        "How do I know if my insurance is accepted?",  # RAG
-        "What happens if I miss my appointment?",  # RAG
-        "Can I get a refund if I cancel my appointment?",  # RAG
-        "Do you offer any discounts for senior citizens?",  # RAG
-        "What languages are spoken by the staff?",  # RAG
-        "Is there a pharmacy on-site?",  # RAG
-        "Can I get a second opinion from another doctor in the clinic?"  # RAG
+        # "Do you have any doctors available for a 7am appointment?",  # RAG
+        # "Can I visit the hospital on weekends?",  # RAG
+        # "Is there parking available at the hospital?",  # RAG
+        # "What is the earliest time I can book an appointment?",  # RAG
+        # "Can I book an appointment without using the website?",  # RAG
+        # "Are there any additional charges for booking an appointment?",  # RAG
+        # "How long does a typical consultation last?",  # RAG
+        # "Can I choose a specific doctor for my appointment?",  # RAG
+        # "What should I bring to my appointment?",  # RAG
+        # "Are walk-in appointments available?",  # RAG
+        # "How do I know if my insurance is accepted?",  # RAG
+        # "What happens if I miss my appointment?",  # RAG
+        # "Can I get a refund if I cancel my appointment?",  # RAG
+        # "Do you offer any discounts for senior citizens?",  # RAG
+        # "What languages are spoken by the staff?",  # RAG
+        # "Is there a pharmacy on-site?",  # RAG
+        # "Can I get a second opinion from another doctor in the clinic?"  # RAG
     ]
     
     for question in test_questions:

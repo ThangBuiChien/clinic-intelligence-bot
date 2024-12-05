@@ -13,6 +13,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from langgraph.graph import START, StateGraph
 from typing_extensions import Annotated
+from datetime import datetime
+
 
 
 ########## Define the state type
@@ -27,10 +29,12 @@ class State(TypedDict):
 
 
 # Define restricted tables and columns
-RESTRICTED_TABLES = ["appointment", "chat_message", "chat_message_entity", "chat_room", "chat_room_participants"
-                     , "drug", "examination_detail", "image", "medical_bill", "patient", "prescribed_drugs", "symptom"]
+RESTRICTED_TABLES = ["chat_message", "chat_message_entity", "chat_room", "chat_room_participants"
+                     , "drug", "symptom"]
+OWNER_ACCESSED_ONLY_TABLES = ['appointment', "examination_detail", "image", "medical_bill", "patient", "prescribed_drugs"]
 RESTRICTED_COLUMNS = {
-    "doctor": ["password", "email"]
+    "doctor": ["password", "email"],
+    "patient": ["password", "email"],
 }
 
 class RestrictedSQLDatabase(SQLDatabase):
@@ -48,6 +52,8 @@ class RestrictedSQLDatabase(SQLDatabase):
                 # Mark restricted columns
                 if col_name in RESTRICTED_COLUMNS.get(table, []):
                     col_name += " -- RESTRICTED COLUMN"
+                elif table in OWNER_ACCESSED_ONLY_TABLES:
+                    col_name += " -- OWNER ACCESSED ONLY"
                 column_definitions.append(col_name)
             table_def = f"CREATE TABLE {table} ({', '.join(column_definitions)})"
             # Mark restricted tables
@@ -73,11 +79,24 @@ class RestrictedSQLDatabase(SQLDatabase):
                 # Check for restricted tables
                 if name in RESTRICTED_TABLES:
                     return False
+                # if name in OWNER_ACCESSED_ONLY_TABLES:
+                #     if not identifiers._has_patient_id_condition(statement):
+                #         return False
                 # Check for restricted columns
                 for table, columns in RESTRICTED_COLUMNS.items():
                     if name in columns:
                         return False
         return True
+    
+    def _has_patient_id_condition(self, statement) -> bool:
+        """Check if the statement includes a condition on patientId."""
+        for token in statement.tokens:
+            if token.ttype is Keyword and token.value.upper() == 'WHERE':
+                where_clause = token.parent
+                for sub_token in where_clause.tokens:
+                    if isinstance(sub_token, Identifier) and sub_token.get_real_name() == 'patientId':
+                        return True
+        return False
     
     def _extract_identifiers(self, token_list):
         """Recursively extract identifiers from parsed tokens."""
@@ -132,12 +151,16 @@ def execute_query(state: State):
     query = state["query"]
     # Validate the query
     if not db.is_query_valid(query):
-        return {"result": "I'm sorry, but I cannot provide information regarding that request."}
+        return {"result": "I'm sorry, but I cannot provide information regarding that request. - query_valid layer"}
     # Execute the query if valid
     execute_query_tool = QuerySQLDataBaseTool(db=db)
     return {"result": execute_query_tool.invoke(state["query"])}
 
 ########### Generated answer
+
+# Get the current date
+today_date = datetime.now().strftime("%Y-%m-%d")
+day_of_week = datetime.now().strftime("%A")
 
 def generate_answer(state: State):
     """Answer question using retrieved information as context."""
@@ -159,7 +182,10 @@ def generate_answer(state: State):
         "Using only the SQL result provided, answer the user's question without including any restricted data. "
         "Do not suggest using restricted tables or columns. If the user's question cannot be answered without restricted data, "
         "politely inform the user that you cannot provide that information.\n\n"
+        "If the query involves tables that require a patient(owner only) ID condition in {OWNER_ACCESSED_ONLY_TABLES} ensure that the condition is present in the query.\n\n"
         "Give u a tips that if query a schedule in specific days but result is null and it days belong to set<workingDays> so it mean he/she is avaiable on that day\n\n"
+        "If you consider this response should be denied, be sure to provide a reason for the denial for debug .\n\n"
+        f"Today's date is {today_date} ({day_of_week}) . When user said book today, you could get the day {today_date} or calculate such as this tuesday or next tuesday to day based on day of week of curent day\n\n"
         f"User Question: {state['question']}\n"
         f"SQL Query: {state['query']}\n"
         f"SQL Result: {state['result']}\n\n"
@@ -173,11 +199,11 @@ def generate_answer(state: State):
     # Final validation to check for restricted data in the answer
     for table in RESTRICTED_TABLES:
         if table in answer:
-            return {"answer": "I'm sorry, but I cannot provide information regarding that request."}
+            return {"answer": "I'm sorry, but I cannot provide information regarding that request - In final table validation."}
     for table, columns in RESTRICTED_COLUMNS.items():
         for column in columns:
             if column in answer:
-                return {"answer": "I'm sorry, but I cannot provide information regarding that request."}
+                return {"answer": "I'm sorry, but I cannot provide information regarding that request. - In final columns validation."}
 
     return {"answer": answer}
 
@@ -311,8 +337,8 @@ def chat(question: Question):
 #     uvicorn.run(app, host="0.0.0.0", port=5000)
 
 
-if __name__ == "__main__":
-    interactive_chat()
+# if __name__ == "__main__":
+#     interactive_chat()
 
 
 
